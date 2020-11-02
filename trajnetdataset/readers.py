@@ -17,13 +17,14 @@ def biwi(line):
                     float(line[2]),
                     float(line[4]))
 
+
 def crowds_interpolate_person(ped_id, person_xyf):
-    ## Earlier
+    # Earlier
     # xs = np.array([x for x, _, _ in person_xyf]) / 720 * 12 # 0.0167
     # ys = np.array([y for _, y, _ in person_xyf]) / 576 * 12 # 0.0208
 
-    ## Pixel-to-meter scale conversion according to
-    ## https://github.com/agrimgupta92/sgan/issues/5
+    # Pixel-to-meter scale conversion according to
+    # https://github.com/agrimgupta92/sgan/issues/5
     xs = np.array([x for x, _, _ in person_xyf]) * 0.0210
     ys = np.array([y for _, y, _ in person_xyf]) * 0.0239
 
@@ -158,7 +159,8 @@ def syi(filename_content):
             continue
 
         # rough approximation of mapping to world coordinates (main concourse is 37m x 84m)
-        new_row = TrackRow(chunk[2], track_id, chunk[0] * 30.0 / 1920, chunk[1] * 70.0 / 1080)
+        new_row = TrackRow(chunk[2], track_id, chunk[0]
+                           * 30.0 / 1920, chunk[1] * 70.0 / 1080)
 
         # interpolate one row to increase frame rate
         if last_row is not None:
@@ -218,25 +220,26 @@ def trajnet_original(line):
                     float(line[2]),
                     float(line[3]))
 
+
 def cff(line):
     line = [e for e in line.split(';') if e != '']
 
-    ## Time Stamp
+    # Time Stamp
     time = [t for t in line[0].split(':') if t != '']
 
-    ## Check Line Entry Valid
+    # Check Line Entry Valid
     if len(line) != 5:
         return None
 
-    ## Check Time Entry Valid
+    # Check Time Entry Valid
     if len(time) != 4:
         return None
 
-    ## Check Location
+    # Check Location
     if line[1] != 'PIW':
         return None
 
-    ## Check Time Format
+    # Check Time Format
     if time[0][-3:] == 'T07':
         ped_id = int(line[4])
         f = 0
@@ -247,7 +250,7 @@ def cff(line):
         # "Time Format Incorrect"
         return None
 
-    ## Extract Frame
+    # Extract Frame
     f += int(time[-3])*1000 + int(time[-2])*10 + int(time[-1][0])
 
     if f % 4 == 0:
@@ -265,12 +268,22 @@ def lcas(line):
                     float(line[2]),
                     float(line[3]))
 
+
 def controlled(line):
     line = [e for e in line.split(', ') if e != '']
     return TrackRow(int(float(line[0])),
                     int(float(line[1])),
                     float(line[2]),
                     float(line[3]))
+
+
+def fish(line):
+    line = [e for e in line.split(', ') if e != '']
+    return TrackRow(int(float(line[0])),
+                    int(float(line[1])),
+                    float(line[2]),
+                    float(line[3]))
+
 
 def get_trackrows(line):
     line = json.loads(line)
@@ -279,6 +292,7 @@ def get_trackrows(line):
         return TrackRow(track['f'], track['p'], track['x'], track['y'],
                         track.get('prediction_number'))
     return None
+
 
 def standard(line):
     line = [e for e in line.split('\t') if e != '']

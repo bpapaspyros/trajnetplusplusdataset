@@ -1,5 +1,6 @@
 """ Categorization of Primary Pedestrian """
 
+import os
 import numpy as np
 import pysparkling
 
@@ -11,6 +12,7 @@ from trajnetplusplustools.interactions import get_interaction_type
 import pickle
 from .orca_helper import predict_all
 
+
 def get_type(scene, args):
     '''
     Categorization of Single Scene
@@ -18,15 +20,15 @@ def get_type(scene, args):
     :return: The type of the traj
     '''
 
-    ## Get xy-coordinates from trackRows
+    # Get xy-coordinates from trackRows
     scene_xy = trajnetplusplustools.Reader.paths_to_xy(scene)
 
-    ## Type 1
+    # Type 1
     def euclidean_distance(row1, row2):
         """Euclidean distance squared between two rows."""
         return np.sqrt((row1.x - row2.x) ** 2 + (row1.y - row2.y) ** 2)
 
-    ## Type 2
+    # Type 2
     def linear_system(scene, obs_len, pred_len):
         '''
         return: True if the traj is linear according to Kalman
@@ -34,16 +36,16 @@ def get_type(scene, args):
         kalman_prediction, _ = kalman_predict(scene, obs_len, pred_len)[0]
         return trajnetplusplustools.metrics.final_l2(scene[0], kalman_prediction)
 
-    ## Type 3
+    # Type 3
     def interaction(rows, pos_range, dist_thresh, obs_len):
         '''
         :return: Determine if interaction exists and type (optionally)
         '''
-        interaction_matrix = check_interaction(rows, pos_range=pos_range, \
-                                 dist_thresh=dist_thresh, obs_len=obs_len)
+        interaction_matrix = check_interaction(rows, pos_range=pos_range,
+                                               dist_thresh=dist_thresh, obs_len=obs_len)
         return np.any(interaction_matrix)
 
-    ## Category Tags
+    # Category Tags
     mult_tag = []
     sub_tag = []
 
@@ -57,7 +59,7 @@ def get_type(scene, args):
 
     # Interactions
     elif interaction(scene_xy, args.inter_pos_range, args.inter_dist_thresh, args.obs_len) \
-         or np.any(group(scene_xy, args.grp_dist_thresh, args.grp_std_thresh, args.obs_len)):
+            or np.any(group(scene_xy, args.grp_dist_thresh, args.grp_std_thresh, args.obs_len)):
         mult_tag.append(3)
 
     # Non-Linear (No explainable reason)
@@ -73,6 +75,7 @@ def get_type(scene, args):
 
     return mult_tag[0], mult_tag, sub_tag
 
+
 def check_collision(scene, n_predictions):
     '''
     Skip the track if collision occurs between primanry and others
@@ -84,14 +87,16 @@ def check_collision(scene, n_predictions):
             return True
     return False
 
+
 def add_noise(observation):
-    ## Last Position Noise
+    # Last Position Noise
     # observation[0][-1] += np.random.uniform(0, 0.04, (2,))
 
-    ## Last Position Noise
-    thresh = 0.005  ## 0.01 for num_ped 3
+    # Last Position Noise
+    thresh = 0.005  # 0.01 for num_ped 3
     observation += np.random.uniform(-thresh, thresh, observation.shape)
     return observation
+
 
 def orca_validity(scene, goals, pred_len=12, obs_len=9, mode='trajnet', iters=15):
     '''
@@ -107,12 +112,15 @@ def orca_validity(scene, goals, pred_len=12, obs_len=9, mode='trajnet', iters=15
         for m, _ in enumerate(orca_pred):
             if len(orca_pred[m]) != pred_len:
                 continue
-            diff_ade = np.mean(np.linalg.norm(np.array(scene_xy[-pred_len:, m]) - np.array(orca_pred[m]), axis=1))
-            diff_fde = np.linalg.norm(np.array(scene_xy[-1, m]) - np.array(orca_pred[m][-1]))
-            if diff_ade > 0.11 or diff_fde > 0.2:   ## (0.08, 0.1) for num_ped 3
+            diff_ade = np.mean(np.linalg.norm(
+                np.array(scene_xy[-pred_len:, m]) - np.array(orca_pred[m]), axis=1))
+            diff_fde = np.linalg.norm(
+                np.array(scene_xy[-1, m]) - np.array(orca_pred[m][-1]))
+            if diff_ade > 0.11 or diff_fde > 0.2:  # (0.08, 0.1) for num_ped 3
                 # print("ORCA Invalid")
                 return True
     return False
+
 
 def all_ped_present(scene):
     """ 
@@ -123,20 +131,26 @@ def all_ped_present(scene):
     scene_xy = trajnetplusplustools.Reader.paths_to_xy(scene)
     return (not np.isnan(scene_xy).any())
 
+
 def write(rows, path, new_scenes, new_frames):
     """ Writing scenes with categories """
     output_path = path.replace('output_pre', 'output')
-    pysp_tracks = rows.filter(lambda r: r.frame in new_frames).map(trajnetplusplustools.writers.trajnet)
-    pysp_scenes = pysparkling.Context().parallelize(new_scenes).map(trajnetplusplustools.writers.trajnet)
+    pysp_tracks = rows.filter(lambda r: r.frame in new_frames).map(
+        trajnetplusplustools.writers.trajnet)
+    pysp_scenes = pysparkling.Context().parallelize(
+        new_scenes).map(trajnetplusplustools.writers.trajnet)
+
+    # removes the file, if previously generated
     pysp_scenes.union(pysp_tracks).saveAsTextFile(output_path)
+
 
 def trajectory_type(rows, path, fps, track_id=0, args=None):
     """ Categorization of all scenes """
 
-    ## Read
+    # Read
     reader = trajnetplusplustools.Reader(path, scene_type='paths')
     scenes = [s for _, s in reader.scenes()]
-    ## Filtered Frames and Scenes
+    # Filtered Frames and Scenes
     new_frames = set()
     new_scenes = []
 
@@ -148,20 +162,21 @@ def trajectory_type(rows, path, fps, track_id=0, args=None):
     test = 'test' in path
     if test:
         path_test = path.replace('test_private', 'test')
-        reader_test = trajnetplusplustools.Reader(path_test, scene_type='paths')
+        reader_test = trajnetplusplustools.Reader(
+            path_test, scene_type='paths')
         scenes_test = [s for _, s in reader_test.scenes()]
-        ## Filtered Test Frames and Test Scenes
+        # Filtered Test Frames and Test Scenes
         new_frames_test = set()
         new_scenes_test = []
 
-    ## For ORCA (Sensitivity)
+    # For ORCA (Sensitivity)
     orca_sensitivity = False
     if args.goal_file is not None:
         goal_dict = pickle.load(open(args.goal_file, "rb"))
         orca_sensitivity = True
         print("Checking sensitivity to initial conditions")
 
-    ## Initialize Tag Stats to be collected
+    # Initialize Tag Stats to be collected
     tags = {1: [], 2: [], 3: [], 4: []}
     mult_tags = {1: [], 2: [], 3: [], 4: []}
     sub_tags = {1: [], 2: [], 3: [], 4: []}
@@ -174,7 +189,7 @@ def trajectory_type(rows, path, fps, track_id=0, args=None):
         if (index+1) % 50 == 0:
             print(index)
 
-        ## Primary Path
+        # Primary Path
         ped_interest = scene[0]
 
         # if ped_interest[0].frame in start_frames:
@@ -184,10 +199,10 @@ def trajectory_type(rows, path, fps, track_id=0, args=None):
         # Assert Test Scene length
         if test:
             assert len(scenes_test[index][0]) >= args.obs_len, \
-                   'Scene Test not adequate length'
+                'Scene Test not adequate length'
 
-        ## Check Collision
-        ## Used in CFF Datasets to account for imperfect tracking
+        # Check Collision
+        # Used in CFF Datasets to account for imperfect tracking
         # if check_collision(scene, args.pred_len):
         #     col_count += 1
         #     continue
@@ -197,12 +212,12 @@ def trajectory_type(rows, path, fps, track_id=0, args=None):
         if args.all_present and (not all_ped_present(scene)):
             continue
 
-        ## Get Tag
+        # Get Tag
         tag, mult_tag, sub_tag = get_type(scene, args)
 
         if np.random.uniform() < args.acceptance[tag - 1]:
-            ## Check Validity
-            ## Used in ORCA Datasets to account for rounding sensitivity
+            # Check Validity
+            # Used in ORCA Datasets to account for rounding sensitivity
             if orca_sensitivity:
                 goals = [goal_dict[path[0].pedestrian] for path in scene]
                 # print('Type III')
@@ -210,44 +225,45 @@ def trajectory_type(rows, path, fps, track_id=0, args=None):
                     col_count += 1
                     continue
 
-            ## Update Tags
+            # Update Tags
             tags[tag].append(track_id)
             for tt in mult_tag:
                 mult_tags[tt].append(track_id)
             for st in sub_tag:
                 sub_tags[st].append(track_id)
 
-            ## Define Scene_Tag
+            # Define Scene_Tag
             scene_tag = []
             scene_tag.append(tag)
             scene_tag.append(sub_tag)
 
-            ## Filtered scenes and Frames
+            # Filtered scenes and Frames
             # start_frames |= set(ped_interest[i].frame for i in range(len(ped_interest[0:1])))
             # print(start_frames)
-            new_frames |= set(ped_interest[i].frame for i in range(len(ped_interest)))
+            new_frames |= set(
+                ped_interest[i].frame for i in range(len(ped_interest)))
             new_scenes.append(
                 trajnetplusplustools.data.SceneRow(track_id, ped_interest[0].pedestrian,
-                                           ped_interest[0].frame, ped_interest[-1].frame,
-                                           fps, scene_tag))
+                                                   ped_interest[0].frame, ped_interest[-1].frame,
+                                                   fps, scene_tag))
 
-            ## Append to list of scenes_test as well if Test Set
+            # Append to list of scenes_test as well if Test Set
             if test:
-                new_frames_test |= set(ped_interest[i].frame for i in range(args.obs_len))
+                new_frames_test |= set(
+                    ped_interest[i].frame for i in range(args.obs_len))
                 new_scenes_test.append(
                     trajnetplusplustools.data.SceneRow(track_id, ped_interest[0].pedestrian,
-                                               ped_interest[0].frame, ped_interest[-1].frame,
-                                               fps, 0))
+                                                       ped_interest[0].frame, ped_interest[-1].frame,
+                                                       fps, 0))
 
             track_id += 1
-
 
     # Writes the Final Scenes and Frames
     write(rows, path, new_scenes, new_frames)
     if test:
         write(rows, path_test, new_scenes_test, new_frames_test)
 
-    ## Stats
+    # Stats
 
     # Number of collisions found
     print("Col Count: ", col_count)
