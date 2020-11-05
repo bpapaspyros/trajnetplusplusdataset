@@ -265,8 +265,10 @@ def main():
 
     # Real datasets conversion
     if args.fish_data_path:
+        num_ex = 0
         files = glob(args.fish_data_path + '/*processed_positions.dat')
-        for f in tqdm(files, desc='Producing intermediate format'):
+        for f in tqdm(files, desc='Producing intermediate format & categorizing'):
+            print('Exp: ' + f)
             inter_f = f.replace('positions', 'positions_inter')
             wf = open(inter_f, 'w')
             line_no = 0
@@ -280,10 +282,19 @@ def main():
                             wf.write(', '.join(ind))
             wf.close()
 
-        write(fish(sc, inter_f),
-              'output_pre/{split}/' + os.path.basename(inter_f).replace('.dat', '.ndjson'), args)
-        categorize(sc, 'output_pre/{split}/' +
-                   os.path.basename(inter_f).replace('.dat', '.ndjson'), args)
+            if line_no < (args.obs_len + args.pred_len) + 2:
+                print(line_no)
+                continue
+
+            write(fish(sc, inter_f),
+                  'output_pre/{split}/' + os.path.basename(inter_f).replace('.dat', '.ndjson'), args)
+            try:
+                categorize(sc, 'output_pre/{split}/' +
+                           os.path.basename(inter_f).replace('.dat', '.ndjson'), args)
+            except:
+                num_ex += 1
+                continue
+        print(num_ex)
 
     elif not args.synthetic:
         write(biwi(sc, 'data/raw/biwi/seq_hotel/obsmat.txt'),
