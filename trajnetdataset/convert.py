@@ -260,6 +260,13 @@ def main():
     categorizers.add_argument('--acceptance', nargs='+', type=float, default=[0.1, 1, 1, 1],
                               help='acceptance ratio of different trajectory (I, II, III, IV) types')
 
+    fish_data_group = parser.add_argument_group('fish data')
+    fish_data_group.add_argument('--adjust_data_scale', action='store_true',
+                        help='Adjust data scale to meters',
+                        default=True)
+    fish_data_group.add_argument('--radius', type=float, default=0.25,
+                              help='Radius of the circular setup used')
+
     args = parser.parse_args()
     sc = pysparkling.Context()
 
@@ -276,6 +283,8 @@ def main():
                 for line_no, line in enumerate(rf.readlines()):
                     if line:
                         coords = line.split(' ')
+                        if args.adjust_data_scale:
+                            coords = [str(float(c) * args.radius + args.radius) for c in coords]
                         inds = [[str(line_no), '0', coords[0], coords[1]],
                                 ['\n' + str(line_no), '1', coords[2], coords[3]]]
                         for ind in inds:
